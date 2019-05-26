@@ -7,6 +7,12 @@
 // Canvas highlights moga byc zrobione a'la bitset.
 // (potem zoptymalizowane do bitsetu.
 // TODO implement Ctrl+Z 
+// This is actually perfect use-case for React+Redux. Am I right ? ?
+// TODO no duplicate edges
+
+
+// ok to implement mouseDown,
+// I need vertex selected primary and vertex selected alternate.
 
 const Highlight = {
   HL_NONE: "white",
@@ -17,7 +23,6 @@ const Highlight = {
 }
 
 let dom = {};
-let selectedVertex;
 dom.canvas = document.getElementsByTagName("canvas")[0];
 
 const canvas = new Canvas(dom.canvas);
@@ -30,24 +35,31 @@ let labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 let vertices = [];
 
 let lastTwo = [];
+// refactor this to selectedPrimary, selectedSecondary
+let selectedPrimary = -1
+let selectedSecondary = -1;
 let lastTwoIndex = 0;
 
 let edges = [];
+
+function hasTwoVerticesSelected() {
+  return (selectedPrimary != -1 && selectedSecondary != -1);
+}
 
 function handleKeyUp(event) {
   // console.log("Dupa", event.keyCode);
   switch (event.keyCode) {
   case 67: // key C
     // connect lastTwo selected ( ? )
-    if (lastTwo.length == 2) {
-      edges.push([lastTwo[0], lastTwo[1]]);
+    if (hasTwoVerticesSelected()) {
+      edges.push([selectedPrimary, selectedSecondary]);
     }
   }
 }
 
 function remember(vertexIndex) {
-  lastTwo[lastTwoIndex % 2] = vertexIndex;
-  lastTwoIndex++;
+  selectedSecondary = selectedPrimary;
+  selectedPrimary = vertexIndex;
 }
 
 function getMousePos(event) {
@@ -88,23 +100,33 @@ function draw() {
   });
 }
 
-function isSelected(vertexIndex) {
-  return (lastTwo[0] == vertexIndex || lastTwo[1] == vertexIndex);
+function isSelectedPrimary(vertexIndex) {
+  return (selectedPrimary == vertexIndex );
+}
+
+function isSelectedSecondary(vertexIndex) {
+  return (selectedSecondary == vertexIndex);
+}
+
+function isSelected() {
+  return (isSelectedPrimary() || isSelectedSecondary());
 }
 
 function calculateVertexColor(v, i) {
   // pretty ugly code my friend.
   // HIGHLY SKILL ED DEVLOPER UGHHHH
   let color = Highlight.HL_NONE;
-  let sel = isSelected(i);
 
   if (v.isUnderCursor) {
     color = Highlight.HL_MOUSEOVER;
   }
-  if (sel) {
+  if (isSelectedSecondary(i)) {
+    color = Highlight.HL_SELECTED_SECONDARY;
+  }
+  if (isSelectedPrimary(i)) {
     color = Highlight.HL_SELECTED_PRIMARY;
   }
-  if (v.isUnderCursor && sel) {
+  if (v.isUnderCursor && isSelected(i)) {
     color = Highlight.HL_MOUSEOVER_AND_SELECTED;
   }
   return color;
@@ -112,6 +134,7 @@ function calculateVertexColor(v, i) {
 
 function handleMouseDown(event) {
   // jesli mamy wybrany jakis vertex, to mozemy go tak przesuwac.
+
 }
 
 function handleClick(event) {
@@ -119,24 +142,28 @@ function handleClick(event) {
   // create if something wasn't there.
   // CREATE = in fact create + select.
   var pos = getMousePos(event);
+  let vertexWasSelected = false
 
   vertices.forEach(function (v, i) {
-    if (isCursorInsideVertexPos(pos, v))
+    console.log("going thru:");
+    if (v.isUnderCursor)
     {
-      selectedVertex = i;
+      console.log("IsUnder:");
       remember(i);
-      return;
+      vertexWasSelected = true;
+      return false;
     }
   });
 
-  if (selectedVertex)
+  console.log("KLIK");
+
+  if (vertexWasSelected)
   {
+    return;
     // select
-    //
     // mousedown event
   } else {
     // new is also selected immidiately;w;...
-
     vertices.push({
       x: pos.x,
       y: pos.y,
@@ -145,7 +172,6 @@ function handleClick(event) {
     });
 
     remember(vertices.length - 1);
-
   }
 }
 
@@ -193,13 +219,13 @@ function updateDomState() {
     dom.edges.appendChild(li);
   });
 
-  lastTwo.forEach(function (v, i) {
-    let d = document.createElement("div");
-    // this is ugly... but i need last two to be highlighted specifically.
-    // TODO think about it
-    d.innerHTML = v;
-    dom.lastSelectedVertices.appendChild(d);
-  });
+  let d = document.createElement("div");
+  d.innerHTML = selectedPrimary;
+  dom.lastSelectedVertices.appendChild(d);
+
+  d = document.createElement("div");
+  d.innerHTML = selectedSecondary;
+  dom.lastSelectedVertices.appendChild(d);
 }
 
 function tick() {
