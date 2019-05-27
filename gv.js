@@ -154,21 +154,13 @@ function calculateVertexColor(v, i) {
   return color;
 }
 
+let vertexWasSelectedWhenMouseDownEventOccured = false;
+
 function handleMouseDown(event) {
   // jesli mamy wybrany jakis vertex, to mozemy go tak przesuwac.
   // TODO ups. To nie tak!!;
-  let pos = getMousePos(event);
-  let curr = vertices[selectedPrimary];
-  curr.x = pos.x;
-  curr.y = pos.y;
-}
 
-function handleClick(event) {
-  // this is actually select or create.
-  // create if something wasn't there.
-  // CREATE = in fact create + select.
   var pos = getMousePos(event);
-  let vertexWasSelected = false
 
   vertices.forEach(function (v, i) {
     console.log("going thru:");
@@ -176,15 +168,35 @@ function handleClick(event) {
     {
       console.log("IsUnder:");
       remember(i);
-      vertexWasSelected = true;
+      vertexWasSelectedWhenMouseDownEventOccured = true;
       return false;
     }
   });
 
+  if (vertexWasSelectedWhenMouseDownEventOccured) {
+    let curr = vertices[selectedPrimary];
+    curr.x = pos.x;
+    curr.y = pos.y;
+  }
+}
+
+function handleMouseUp(event) {
+  // if (vertexWasSelectedWhenMouseDownEventOccured)
+  //   let curr = vertices[selectedPrimary];
+  //   curr.x = pos.x;
+  //   curr.y = pos.y;
+}
+
+function handleClick(event) {
+  // this is actually select or create.
+  // create if something wasn't there.
+  // CREATE = in fact create + select.
+  var pos = getMousePos(event);
   console.log("KLIK");
 
-  if (vertexWasSelected)
+  if (vertexWasSelectedWhenMouseDownEventOccured)
   {
+    vertexWasSelectedWhenMouseDownEventOccured = false;
     return;
     // select
     // mousedown event
@@ -221,7 +233,14 @@ function highlightVertexUnderCursor(mousePos)
 function handleMouseMove(event)
 {
   let pos = getMousePos(event);
-  highlightVertexUnderCursor(pos);
+  
+  if (vertexWasSelectedWhenMouseDownEventOccured) {
+     let curr = vertices[selectedPrimary];
+     curr.x = pos.x;
+     curr.y = pos.y;
+  } else {
+    highlightVertexUnderCursor(pos);
+  }
 }
 
 
@@ -263,4 +282,5 @@ requestAnimationFrame(tick);
 dom.canvas.addEventListener("click", handleClick);
 dom.canvas.addEventListener("mousemove", handleMouseMove);
 dom.canvas.addEventListener("mousedown", handleMouseDown);
+dom.canvas.addEventListener("mouseup", handleMouseUp);
 document.addEventListener("keyup", handleKeyUp);
