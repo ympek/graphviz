@@ -7,12 +7,11 @@
 // Canvas highlights moga byc zrobione a'la bitset.
 // (potem zoptymalizowane do bitsetu.
 // TODO implement Ctrl+Z 
+// but first implement deletion!
 // This is actually perfect use-case for React+Redux. Am I right ? ?
 // TODO no duplicate edges
+// is 1,1 edge allowed? 
 
-
-// ok to implement mouseDown,
-// I need vertex selected primary and vertex selected alternate.
 
 const Highlight = {
   HL_NONE: "white",
@@ -21,6 +20,11 @@ const Highlight = {
   HL_SELECTED_SECONDARY: "orange",
   HL_MOUSEOVER_AND_SELECTED: "blue"
 }
+
+const Keyboard = {
+  KEY_C: 67,
+  KEY_D: 68
+};
 
 let dom = {};
 dom.canvas = document.getElementsByTagName("canvas")[0];
@@ -49,11 +53,39 @@ function hasTwoVerticesSelected() {
 function handleKeyUp(event) {
   // console.log("Dupa", event.keyCode);
   switch (event.keyCode) {
-  case 67: // key C
-    // connect lastTwo selected ( ? )
-    if (hasTwoVerticesSelected()) {
-      edges.push([selectedPrimary, selectedSecondary]);
+  case Keyboard.KEY_C:
+    connectTwoSelectedVertices();
+    break;
+  case Keyboard.KEY_D:
+    deleteSelectedPrimaryVertex();
+    break;
+  }
+}
+
+function deleteSelectedPrimaryVertex() {
+  //vertices.splice(selectedPrimary, 1);
+  //edges = edges.filter((edge) => {
+  // return (edge[0] != selectedPrimary && edge[1] != selectedPrimary);
+  // });
+  //
+  let edgesToDelete = [];
+  delete vertices[selectedPrimary];
+  edges.forEach(function (edge, i) {
+    if (edge[0] == selectedPrimary || edge[1] == selectedPrimary) {
+      edgesToDelete.push(i);
     }
+  });
+
+  edgesToDelete.forEach((edgeIndex) => {
+    delete edges[edgeIndex];
+  });
+
+  selectedPrimary = -1;
+}
+
+function connectTwoSelectedVertices() {
+  if (hasTwoVerticesSelected()) {
+    edges.push([selectedPrimary, selectedSecondary]);
   }
 }
 
@@ -77,16 +109,6 @@ function getMousePos(event) {
 // czyli jak robie forEach to nie musze sie "wracac" tzn np. kiedy dojde do vertexa B to znaczy ze z A juz jest on polaczony.
 
 // robimy najpierw nieskierowany graf.
-
-
-function connectAll() {
-  for (let i = 0; i < vertices.length; i++)
-  {
-    for (let j = i + 1; j < vertices.length; j++)
-    {
-      edges.push([i, j]);
-    }
-  }}
 
 function draw() {
   // draw edges first
@@ -134,7 +156,11 @@ function calculateVertexColor(v, i) {
 
 function handleMouseDown(event) {
   // jesli mamy wybrany jakis vertex, to mozemy go tak przesuwac.
-
+  // TODO ups. To nie tak!!;
+  let pos = getMousePos(event);
+  let curr = vertices[selectedPrimary];
+  curr.x = pos.x;
+  curr.y = pos.y;
 }
 
 function handleClick(event) {
@@ -200,9 +226,6 @@ function handleMouseMove(event)
 
 
 function updateDomState() {
-  // draw vertices and edges inside respective containers.
-  // this already is getting so ugly i cant proceed and I will cry.
-  // I lack clear goal of what I want of this.
   dom.edges.innerHTML = "";
   dom.vertices.innerHTML = "";
   dom.lastSelectedVertices.innerHTML = "";
