@@ -1,17 +1,11 @@
-// wyklikiwanie sobie obiektów
-// interface - connect last two selected.
-
 /* global Canvas */
+/* global EdgeSet */
 
-// no to generalnie chyba będzie madrzej trzeba to zrobic.
-// Canvas highlights moga byc zrobione a'la bitset.
-// (potem zoptymalizowane do bitsetu.
 // TODO implement Ctrl+Z 
-// but first implement deletion!
 // This is actually perfect use-case for React+Redux. Am I right ? ?
-// TODO no duplicate edges
-// is 1,1 edge allowed? 
+// is 1,1 edge allowed? - not in my impl. 
 
+let edges = new EdgeSet();
 
 const Highlight = {
   HL_NONE: "white",
@@ -37,17 +31,12 @@ dom.lastSelectedVertices = document.getElementById("selected");
 
 let labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 let vertices = [];
-
-let lastTwo = [];
-// refactor this to selectedPrimary, selectedSecondary
 let selectedPrimary = -1
 let selectedSecondary = -1;
-let lastTwoIndex = 0;
 
-let edges = [];
 
 function hasTwoVerticesSelected() {
-  return (selectedPrimary != -1 && selectedSecondary != -1);
+  return (selectedPrimary != -1 && selectedSecondary != -1 && selectedPrimary != selectedSecondary);
 }
 
 function handleKeyUp(event) {
@@ -63,29 +52,20 @@ function handleKeyUp(event) {
 }
 
 function deleteSelectedPrimaryVertex() {
-  //vertices.splice(selectedPrimary, 1);
-  //edges = edges.filter((edge) => {
-  // return (edge[0] != selectedPrimary && edge[1] != selectedPrimary);
-  // });
-  //
-  let edgesToDelete = [];
   delete vertices[selectedPrimary];
-  edges.forEach(function (edge, i) {
-    if (edge[0] == selectedPrimary || edge[1] == selectedPrimary) {
-      edgesToDelete.push(i);
-    }
-  });
 
-  edgesToDelete.forEach((edgeIndex) => {
-    delete edges[edgeIndex];
-  });
+  edges.deleteByVertex(selectedPrimary);
 
   selectedPrimary = -1;
 }
 
 function connectTwoSelectedVertices() {
   if (hasTwoVerticesSelected()) {
+    // here duplication check, though it should be done on data structure level
+    // implement a Set. The Set that is built in just dont works bcuz [1,2] !== [1,2]
     edges.push([selectedPrimary, selectedSecondary]);
+  } else {
+    console.log("Select two vertices if you want to connect.");
   }
 }
 
@@ -152,6 +132,8 @@ function calculateVertexColor(v, i) {
     color = Highlight.HL_MOUSEOVER_AND_SELECTED;
   }
   return color;
+
+  // FizzBuzz vibes here.
 }
 
 let vertexWasSelectedWhenMouseDownEventOccured = false;
@@ -163,28 +145,15 @@ function handleMouseDown(event) {
   var pos = getMousePos(event);
 
   vertices.forEach(function (v, i) {
-    console.log("going thru:");
-    if (v.isUnderCursor)
-    {
-      console.log("IsUnder:");
+    if (v.isUnderCursor) {
       remember(i);
       vertexWasSelectedWhenMouseDownEventOccured = true;
       return false;
     }
   });
-
-  if (vertexWasSelectedWhenMouseDownEventOccured) {
-    let curr = vertices[selectedPrimary];
-    curr.x = pos.x;
-    curr.y = pos.y;
-  }
 }
 
 function handleMouseUp(event) {
-  // if (vertexWasSelectedWhenMouseDownEventOccured)
-  //   let curr = vertices[selectedPrimary];
-  //   curr.x = pos.x;
-  //   curr.y = pos.y;
 }
 
 function handleClick(event) {
@@ -233,7 +202,7 @@ function highlightVertexUnderCursor(mousePos)
 function handleMouseMove(event)
 {
   let pos = getMousePos(event);
-  
+
   if (vertexWasSelectedWhenMouseDownEventOccured) {
      let curr = vertices[selectedPrimary];
      curr.x = pos.x;
