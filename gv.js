@@ -1,11 +1,38 @@
 /* global Canvas */
 /* global EdgeSet */
+/* global Undo */
 
-// TODO implement Ctrl+Z 
-// This is actually perfect use-case for React+Redux. Am I right ? ?
-// is 1,1 edge allowed? - not in my impl. 
+// Tasks:
+// TODO Refactoring to beautiful code
+// TODO implement Ctrl+Z
+// TODO prettier CSS and stuff
+// TODO Themes
+// TODO import/export graph
+// TODO highlighting vertices and edges binded with controls;
+// TODO Rewrite in React/Redux
 
+// resizable canvas is a goal.
+// controls - i can show and hide, and canvas resize accordingly.
+
+let dom = {};
+dom.canvas = document.getElementsByTagName("canvas")[0];
+dom.vertices = document.getElementById("vertices");
+dom.edges = document.getElementById("edges");
+dom.lastSelectedVertices = document.getElementById("selected");
+
+// resize
+// canvas is blurred this way.
+// dom.canvas.setAttribute('width', getComputedStyle(dom.canvas, null).getPropertyValue("width"));
+// dom.canvas.setAttribute('height', getComputedStyle(dom.canvas, null).getPropertyValue("height"));
+let undo = new Undo();
+let vertices = [];
 let edges = new EdgeSet();
+const canvas = new Canvas(dom.canvas);
+
+const Ops = {
+  OP_ADD_VERTEX: "add vertex",
+  OP_DEL_VERTEX: "del vertex"
+}
 
 const Highlight = {
   HL_NONE: "white",
@@ -17,62 +44,48 @@ const Highlight = {
 
 const Keyboard = {
   KEY_C: 67,
-  KEY_D: 68
+  KEY_D: 68,
+  KEY_U: 85
 };
 
-let dom = {};
-dom.canvas = document.getElementsByTagName("canvas")[0];
 
-const canvas = new Canvas(dom.canvas);
-
-dom.vertices = document.getElementById("vertices");
-dom.edges = document.getElementById("edges");
-dom.lastSelectedVertices = document.getElementById("selected");
+const selection = new Selection();
 
 let labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-let vertices = [];
-let selectedPrimary = -1
-let selectedSecondary = -1;
 
-
-function hasTwoVerticesSelected() {
-  return (selectedPrimary != -1 && selectedSecondary != -1 && selectedPrimary != selectedSecondary);
-}
 
 function handleKeyUp(event) {
-  // console.log("Dupa", event.keyCode);
   switch (event.keyCode) {
-  case Keyboard.KEY_C:
-    connectTwoSelectedVertices();
-    break;
-  case Keyboard.KEY_D:
-    deleteSelectedPrimaryVertex();
-    break;
+    case Keyboard.KEY_C:
+      connectTwoSelectedVertices();
+      break;
+    case Keyboard.KEY_D:
+      deleteSelectedPrimaryVertex();
+      break;
+    case Keyboard.KEY_U:
+      undoLastOperation();
+      break;
   }
 }
 
 function deleteSelectedPrimaryVertex() {
-  delete vertices[selectedPrimary];
+  deleteVertex(selection.primary);
+}
 
-  edges.deleteByVertex(selectedPrimary);
-
-  selectedPrimary = -1;
+function deleteVertex(v) {
+  delete vertices[v];
+  edges.deleteByVertex(v);
+  selection.clearFor(v);
 }
 
 function connectTwoSelectedVertices() {
-  if (hasTwoVerticesSelected()) {
-    // here duplication check, though it should be done on data structure level
-    // implement a Set. The Set that is built in just dont works bcuz [1,2] !== [1,2]
-    edges.push([selectedPrimary, selectedSecondary]);
+  if (selection.areTwoVerticesSelected()) {
+    edges.push([selection.primary, selection.secondary]);
   } else {
-    console.log("Select two vertices if you want to connect.");
+    console.error("Select two vertices if you want to connect.");
   }
 }
 
-function remember(vertexIndex) {
-  selectedSecondary = selectedPrimary;
-  selectedPrimary = vertexIndex;
-}
 
 function getMousePos(event) {
   var rect = dom.canvas.getBoundingClientRect();
@@ -102,17 +115,6 @@ function draw() {
   });
 }
 
-function isSelectedPrimary(vertexIndex) {
-  return (selectedPrimary == vertexIndex );
-}
-
-function isSelectedSecondary(vertexIndex) {
-  return (selectedSecondary == vertexIndex);
-}
-
-function isSelected() {
-  return (isSelectedPrimary() || isSelectedSecondary());
-}
 
 function calculateVertexColor(v, i) {
   // pretty ugly code my friend.
@@ -122,13 +124,13 @@ function calculateVertexColor(v, i) {
   if (v.isUnderCursor) {
     color = Highlight.HL_MOUSEOVER;
   }
-  if (isSelectedSecondary(i)) {
+  if (selection.isSelectedAsSecondary(i)) {
     color = Highlight.HL_SELECTED_SECONDARY;
   }
-  if (isSelectedPrimary(i)) {
+  if (selection.isSelectedAsPrimary(i)) {
     color = Highlight.HL_SELECTED_PRIMARY;
   }
-  if (v.isUnderCursor && isSelected(i)) {
+  if (v.isUnderCursor && selection.isSelected(i)) {
     color = Highlight.HL_MOUSEOVER_AND_SELECTED;
   }
   return color;
@@ -146,7 +148,7 @@ function handleMouseDown(event) {
 
   vertices.forEach(function (v, i) {
     if (v.isUnderCursor) {
-      remember(i);
+      selection.select(i);
       vertexWasSelectedWhenMouseDownEventOccured = true;
       return false;
     }
@@ -171,15 +173,20 @@ function handleClick(event) {
     // mousedown event
   } else {
     // new is also selected immidiately;w;...
-    vertices.push({
-      x: pos.x,
-      y: pos.y,
-      r: 10, // todo make konfigurable. OR?? zoom.
-      hl: "white"
-    });
-
-    remember(vertices.length - 1);
+    addVertex(pos);
+    let newlyAddedVertexId = vertices.length - 1;
+    undo.pushOp(Ops.OP_DEL_VERTEX, { vertexToDel: newlyAddedVertexId });
+    // no i gdzie tu to popOp.
+    selection.select(newlyAddedVertexId);
   }
+}
+
+function addVertex(pos) {
+  vertices.push({
+    x: pos.x,
+    y: pos.y,
+    r: 10, // todo make konfigurable. OR?? zoom.
+  });
 }
 
 function isCursorInsideVertexPos(mousePos, v)
@@ -204,14 +211,24 @@ function handleMouseMove(event)
   let pos = getMousePos(event);
 
   if (vertexWasSelectedWhenMouseDownEventOccured) {
-     let curr = vertices[selectedPrimary];
-     curr.x = pos.x;
-     curr.y = pos.y;
+    let curr = vertices[selection.primary];
+    curr.x = pos.x;
+    curr.y = pos.y;
   } else {
     highlightVertexUnderCursor(pos);
   }
 }
 
+function undoLastOperation() {
+  // this is getting super ugly , i  like that.
+  let operation = undo.popOp();
+  switch (operation.id) {
+    case Ops.OP_DEL_VERTEX:
+      deleteVertex(operation.props.vertexToDel)
+  }
+  // polymorphism later;
+  // operation.execute(vertices, edges);
+}
 
 function updateDomState() {
   dom.edges.innerHTML = "";
@@ -231,11 +248,11 @@ function updateDomState() {
   });
 
   let d = document.createElement("div");
-  d.innerHTML = selectedPrimary;
+  d.innerHTML = selection.primary;
   dom.lastSelectedVertices.appendChild(d);
 
   d = document.createElement("div");
-  d.innerHTML = selectedSecondary;
+  d.innerHTML = selection.secondary;
   dom.lastSelectedVertices.appendChild(d);
 }
 
