@@ -1,6 +1,6 @@
 /* global Canvas */
 /* global EdgeSet */
-/* global Undo */
+/* global UndoRedo */
 
 // Tasks:
 // TODO Refactoring to beautiful code
@@ -11,6 +11,9 @@
 // TODO highlighting vertices and edges binded with controls;
 // TODO Rewrite in React/Redux
 
+
+// Operation register = OpStack
+
 // resizable canvas is a goal.
 // controls - i can show and hide, and canvas resize accordingly.
 
@@ -18,13 +21,14 @@ let dom = {};
 dom.canvas = document.getElementsByTagName("canvas")[0];
 dom.vertices = document.getElementById("vertices");
 dom.edges = document.getElementById("edges");
+dom.history = document.getElementById("history");
 dom.lastSelectedVertices = document.getElementById("selected");
 
 // resize
 // canvas is blurred this way.
 // dom.canvas.setAttribute('width', getComputedStyle(dom.canvas, null).getPropertyValue("width"));
 // dom.canvas.setAttribute('height', getComputedStyle(dom.canvas, null).getPropertyValue("height"));
-let undo = new Undo();
+let undo = new UndoRedo();
 let vertices = [];
 let edges = new EdgeSet();
 const canvas = new Canvas(dom.canvas);
@@ -48,11 +52,9 @@ const Keyboard = {
   KEY_U: 85
 };
 
-
 const selection = new Selection();
 
 let labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
 
 function handleKeyUp(event) {
   switch (event.keyCode) {
@@ -69,11 +71,13 @@ function handleKeyUp(event) {
 }
 
 function deleteSelectedPrimaryVertex() {
+  undo.pushOp(Ops.OP_DEL_VERTEX, { x: vertices[selection.primary].x, y: vertices[selection.primary].y });
   deleteVertex(selection.primary);
 }
 
 function deleteVertex(v) {
-  delete vertices[v];
+  console.log("dupa", v);
+  vertices.splice(v, 1);
   edges.deleteByVertex(v);
   selection.clearFor(v);
 }
@@ -85,7 +89,6 @@ function connectTwoSelectedVertices() {
     console.error("Select two vertices if you want to connect.");
   }
 }
-
 
 function getMousePos(event) {
   var rect = dom.canvas.getBoundingClientRect();
@@ -134,18 +137,12 @@ function calculateVertexColor(v, i) {
     color = Highlight.HL_MOUSEOVER_AND_SELECTED;
   }
   return color;
-
   // FizzBuzz vibes here.
 }
 
 let vertexWasSelectedWhenMouseDownEventOccured = false;
 
-function handleMouseDown(event) {
-  // jesli mamy wybrany jakis vertex, to mozemy go tak przesuwac.
-  // TODO ups. To nie tak!!;
-
-  var pos = getMousePos(event);
-
+function handleMouseDown() {
   vertices.forEach(function (v, i) {
     if (v.isUnderCursor) {
       selection.select(i);
@@ -156,6 +153,7 @@ function handleMouseDown(event) {
 }
 
 function handleMouseUp(event) {
+  // event move.
 }
 
 function handleClick(event) {
@@ -175,8 +173,7 @@ function handleClick(event) {
     // new is also selected immidiately;w;...
     addVertex(pos);
     let newlyAddedVertexId = vertices.length - 1;
-    undo.pushOp(Ops.OP_DEL_VERTEX, { vertexToDel: newlyAddedVertexId });
-    // no i gdzie tu to popOp.
+    undo.pushOp(Ops.OP_ADD_VERTEX, { vertexId: newlyAddedVertexId });
     selection.select(newlyAddedVertexId);
   }
 }
@@ -220,11 +217,15 @@ function handleMouseMove(event)
 }
 
 function undoLastOperation() {
+  console.log("Undo");
   // this is getting super ugly , i  like that.
   let operation = undo.popOp();
+  console.log(operation);
   switch (operation.id) {
+    case Ops.OP_ADD_VERTEX:
+      deleteVertex(operation.props.vertexId);
     case Ops.OP_DEL_VERTEX:
-      deleteVertex(operation.props.vertexToDel)
+      addVertex({ x: operation.props.x, y: operation.props.y });
   }
   // polymorphism later;
   // operation.execute(vertices, edges);
@@ -233,6 +234,7 @@ function undoLastOperation() {
 function updateDomState() {
   dom.edges.innerHTML = "";
   dom.vertices.innerHTML = "";
+  dom.history.innerHTML = "";
   dom.lastSelectedVertices.innerHTML = "";
 
   vertices.forEach(function (v, i) {
@@ -245,6 +247,13 @@ function updateDomState() {
     let li = document.createElement("li");
     li.innerHTML = e;
     dom.edges.appendChild(li);
+  });
+
+  // undo redo
+  undo.forEach(function (op) {
+    let li = document.createElement("li");
+    li.innerHTML = op.id;
+    dom.history.appendChild(li);
   });
 
   let d = document.createElement("div");

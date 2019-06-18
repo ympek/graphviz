@@ -1,14 +1,11 @@
-/* exported Undo */
-class Undo {
+/* exported UndoRedo */
+class UndoRedo {
   constructor() {
     this.ops = [];
   }
 
-  pushOp(opId, opProps) {
-    this.ops.push({
-      id: opId,
-      props: opProps
-    })
+  pushOp(opId) {
+    this.ops.push(opId);
   }
 
   popOp() {

@@ -25,7 +25,7 @@ class EdgeSet {
     });
 
     edgesToDelete.forEach((edgeIndex) => {
-      delete this.edges[edgeIndex];
+      this.edges.splice(edgeIndex, 1);
     });
   }
 
