@@ -11,7 +11,6 @@
 // TODO highlighting vertices and edges binded with controls;
 // TODO Rewrite in React/Redux
 
-
 // Operation register = OpStack
 
 // resizable canvas is a goal.
@@ -35,7 +34,9 @@ const canvas = new Canvas(dom.canvas);
 
 const Ops = {
   OP_ADD_VERTEX: "add vertex",
-  OP_DEL_VERTEX: "del vertex"
+  OP_DEL_VERTEX: "del vertex",
+
+  OP_CONNECT: "connect vertices"
 }
 
 const Highlight = {
@@ -71,13 +72,16 @@ function handleKeyUp(event) {
 }
 
 function deleteSelectedPrimaryVertex() {
-  undo.pushOp(Ops.OP_DEL_VERTEX, { x: vertices[selection.primary].x, y: vertices[selection.primary].y });
-  deleteVertex(selection.primary);
+  if (selection.isAnyVertexSelectedAsPrimary()) {
+    undo.pushOp(Ops.OP_DEL_VERTEX, { x: vertices[selection.primary].x, y: vertices[selection.primary].y });
+    deleteVertex(selection.primary);
+  }
 }
 
 function deleteVertex(v) {
   console.log("dupa", v);
-  vertices.splice(v, 1);
+  // vertices.splice(v, 1);
+  delete vertices[v];
   edges.deleteByVertex(v);
   selection.clearFor(v);
 }
@@ -88,6 +92,10 @@ function connectTwoSelectedVertices() {
   } else {
     console.error("Select two vertices if you want to connect.");
   }
+}
+
+function disconnectVertices(v1, v2) {
+  edges.deleteBetween(v1, v2)
 }
 
 function getMousePos(event) {
@@ -192,8 +200,7 @@ function isCursorInsideVertexPos(mousePos, v)
     && mousePos.y >= (v.y - v.r) && mousePos.y <= (v.y + v.r);
 }
 
-function highlightVertexUnderCursor(mousePos)
-{
+function highlightVertexUnderCursor(mousePos) {
   vertices.forEach(function (v) {
     v.isUnderCursor = false;
     if (isCursorInsideVertexPos(mousePos, v))
@@ -203,8 +210,7 @@ function highlightVertexUnderCursor(mousePos)
   });
 }
 
-function handleMouseMove(event)
-{
+function handleMouseMove(event) {
   let pos = getMousePos(event);
 
   if (vertexWasSelectedWhenMouseDownEventOccured) {
@@ -266,6 +272,7 @@ function updateDomState() {
 }
 
 function tick() {
+  // dom.update();
   updateDomState();
   canvas.clear();
   draw();

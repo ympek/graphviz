@@ -13,8 +13,12 @@ class Selection {
     return (this.secondary == vertexIndex);
   }
 
-  isSelected() {
-    return (this.isSelectedAsPrimary() || this.isSelectedAsSecondary());
+  isSelected(i) {
+    return (this.isSelectedAsPrimary(i) || this.isSelectedAsSecondary(i));
+  }
+
+  isAnyVertexSelectedAsPrimary() {
+    return (this.primary != -1);
   }
 
   areTwoVerticesSelected() {

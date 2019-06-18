@@ -1,10 +1,7 @@
 /* exported EdgeSet */
 class EdgeSet {
   constructor() {
-    this.edges = [];
-    // I know it should be different.
-    // Patience, please.
-    this.hashes = [];
+    this.edges = {};
   }
 
   hash(pair) {
@@ -16,29 +13,34 @@ class EdgeSet {
     return a - b;
   }
 
+  deleteBetween(v1, v2) {
+    let edge = [v1, v2].sort(this.compareNumbers)
+    let hash = this.hash(edge)
+    delete edges[hash];
+  }
+
   deleteByVertex(v) {
     let edgesToDelete = [];
-    this.edges.forEach(function (edge, i) {
-      if (edge[0] == v || edge[1] == v) {
-        edgesToDelete.push(i);
+    Object.keys(this.edges).forEach((hash) => {
+      if (this.edges[hash][0] == v || this.edges[hash][1] == v) {
+        edgesToDelete.push(hash);
       }
     });
 
-    edgesToDelete.forEach((edgeIndex) => {
-      this.edges.splice(edgeIndex, 1);
+    edgesToDelete.forEach((hash) => {
+      delete this.edges[hash]
     });
   }
 
   push(edge) {
     let hash = this.hash(edge);
-    if (this.hashes.indexOf(hash) === -1) {
-      this.hashes.push(hash);
-      this.edges.push(edge);
-    }
+    this.edges[hash] = edge;
   }
 
   forEach(func) {
-    this.edges.forEach(func);
+    Object.keys(this.edges).forEach((hash) => {
+      func(this.edges[hash], hash);
+    });
   }
 };
 
